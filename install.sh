@@ -141,15 +141,7 @@ install_10_install-all() {
     print_error "Failed to download 10-install-all.sh"
     return 1
   fi
-  
-  # Download vara-downloader.sh
-  print_info "Downloading vara-downloader.sh from GitHub..."
-  if curl -fsSL "${REPO_URL}/vara-downloader.sh" -o "${WINE_ADDONS_DIR}/vara-downloader.sh"; then
-    print_success "Downloaded vara-downloader.sh"
-  else
-    print_warning "Failed to download vara-downloader.sh (VARA auto-download may not work)"
-  fi
-  
+
   # Make executable
   print_info "Setting executable permissions..."
   chmod +x "${WINE_ADDONS_DIR}/10-install-all.sh"
