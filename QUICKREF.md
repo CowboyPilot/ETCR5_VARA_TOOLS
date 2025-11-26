@@ -96,9 +96,11 @@ et-radio   # Configure radio
 
 Download and place in `~/add-ons/wine/` or `~/Downloads/`:
 
-- VarAC installer: `VarAC_Installer*.exe`
-- VARA HF installer: `VARA*.exe` (optional)
-- VARA FM installer: `VARAFM*.exe` or `VARA*FM*.exe` (optional)
+- VarAC installer: `VarAC_Installer*.exe` (required)
+- VARA HF installer: Auto-downloads from Winlink if not found
+- VARA FM installer: Auto-downloads from Winlink if not found
+
+**Note**: VARA HF and FM will be automatically downloaded from the official Winlink server if not present locally.
 
 ## Troubleshooting Quick Fixes
 

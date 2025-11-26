@@ -1,0 +1,118 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                    ✨ WHAT'S NEW - VARA AUTO-DOWNLOAD ✨                   ║
+║                                                                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+🎉 NEW FEATURE: Automatic VARA Download
+
+Your installer now automatically downloads VARA HF and VARA FM modems from 
+the official Winlink server if they're not found locally!
+
+═══════════════════════════════════════════════════════════════════════════
+
+WHAT THIS MEANS FOR USERS:
+
+   BEFORE:
+   ───────
+   1. Run installer
+   2. See "VARA not found"
+   3. Google for VARA download page
+   4. Find Winlink downloads site
+   5. Download VARA HF manually
+   6. Download VARA FM manually
+   7. Move files to correct location
+   8. Re-run installer
+   
+   AFTER:
+   ──────
+   1. Run installer
+   2. Installer says "Downloading VARA..."
+   3. ☕ Done!
+
+═══════════════════════════════════════════════════════════════════════════
+
+HOW IT WORKS:
+
+✓ Checks for local VARA installers first
+✓ If not found, downloads latest from Winlink automatically
+✓ If download fails, shows clear manual instructions
+✓ Continues with installation seamlessly
+
+═══════════════════════════════════════════════════════════════════════════
+
+WHAT YOU STILL NEED TO DOWNLOAD MANUALLY:
+
+   • VarAC installer (VarAC_Installer*.exe)
+   
+   Place in: ~/add-ons/wine/ or ~/Downloads/
+
+═══════════════════════════════════════════════════════════════════════════
+
+BENEFITS:
+
+   ✓ Faster setup - no hunting for download links
+   ✓ Always latest - gets current version from Winlink
+   ✓ Less confusion - automatic process
+   ✓ Still flexible - can provide installers manually if preferred
+   ✓ Better support - fewer "where do I download?" questions
+
+═══════════════════════════════════════════════════════════════════════════
+
+TECHNICAL DETAILS:
+
+Source: Integrated from vara-downloader.sh by Gaston Gonzalez
+Downloads from: https://downloads.winlink.org/VARA%20Products/
+Requirements: curl (standard on ETC R5)
+Optional: pup (for better HTML parsing)
+
+Files Modified:
+   • 10-install_all.sh - Added download function
+   • README.md - Updated prerequisites
+   • CHANGELOG.md - Listed new feature
+   • QUICKREF.md - Updated requirements
+
+New Documentation:
+   • VARA_AUTO_DOWNLOAD.md - Technical details
+   • VARA_INTEGRATION_SUMMARY.md - Implementation summary
+
+═══════════════════════════════════════════════════════════════════════════
+
+TESTING:
+
+The auto-download has been tested for:
+   ✓ Bash syntax validation
+   ✓ Error handling
+   ✓ Fallback scenarios
+   ✓ Network failure handling
+
+═══════════════════════════════════════════════════════════════════════════
+
+FOR YOUR ANNOUNCEMENT:
+
+When you share this update with the community, you can say:
+
+   "New in v1.1.0: VARA HF and VARA FM modems now download automatically!
+    Just run the installer and it handles everything. No more hunting for
+    download links or figuring out which file to get. The installer grabs
+    the latest version from Winlink and installs it for you."
+
+═══════════════════════════════════════════════════════════════════════════
+
+DEPLOYMENT:
+
+All files are updated and ready in /mnt/user-data/outputs/
+Follow START_HERE.md to deploy to GitHub
+
+═══════════════════════════════════════════════════════════════════════════
+
+QUESTIONS?
+
+See: VARA_AUTO_DOWNLOAD.md for complete technical documentation
+See: VARA_INTEGRATION_SUMMARY.md for implementation details
+
+═══════════════════════════════════════════════════════════════════════════
+
+This makes your project even more user-friendly and professional!
+
+73!

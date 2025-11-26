@@ -53,10 +53,11 @@ Before running the installer, ensure you have completed these EmComm Tools setup
 - `et-audio` - Set up audio devices
 - `et-radio` - Configure your radio
 
-You will also need:
+You will need the VarAC installer:
 
-- VarAC installer (e.g., `VarAC_Installer_v*.exe`) in `~/add-ons/wine/` or `~/Downloads/`
-- Optional: VARA HF and VARA FM installers in the same locations
+- Download `VarAC_Installer_v*.exe` to `~/add-ons/wine/` or `~/Downloads/`
+
+**VARA HF and VARA FM installers will be automatically downloaded** from Winlink if not found locally. If automatic download fails, you can manually download them from the [Winlink VARA Products page](https://downloads.winlink.org/VARA%20Products/).
 
 ## Usage
 

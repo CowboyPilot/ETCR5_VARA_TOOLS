@@ -27,6 +27,7 @@
 - **DEPLOYMENT_GUIDE.md** - Detailed deployment instructions
 - **STRUCTURE_GUIDE.md** - Repository organization explained
 - **PROJECT_SUMMARY.md** - Complete overview of all changes
+- **VARA_AUTO_DOWNLOAD.md** - Documentation of auto-download feature
 
 ### Testing
 - `test_installation.sh` - Test script to verify deployment

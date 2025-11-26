@@ -14,6 +14,7 @@
    ✓ All your original scripts (updated and renamed)
    ✓ Automated testing workflow (GitHub Actions)
    ✓ Complete deployment instructions
+   ✓ **NEW: VARA HF/FM auto-download from Winlink**
 
 📋 QUICK OVERVIEW:
 
@@ -53,6 +54,7 @@
    → Basic README                    → Comprehensive docs
    → No automation                   → GitHub Actions testing
    → Hard to contribute              → Clear guidelines
+   → Manual VARA downloads           → **Auto-download VARA HF/FM**
    
 📝 DEPLOYMENT STEPS (Quick):
 
