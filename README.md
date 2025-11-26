@@ -203,7 +203,7 @@ Issues, suggestions, and pull requests are welcome! This project is designed spe
 
 ## License
 
-These scripts are provided as-is for the amateur radio community. Use at your own risk.
+These scripts are provided as-is for the amateur radio community. Use at your own risk.  Many of them are based on scripts written by Gaston Gonzalez (The Tech Prepper).
 
 ## Credits
 
