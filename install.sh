@@ -4,8 +4,10 @@
 #
 # This script downloads and installs all VARA tools for EmComm Tools R5:
 #   - 10-install_all.sh → ~/add-ons/wine/
+#   - vara-downloader.sh → ~/add-ons/wine/
 #   - etc-vara → /opt/emcomm-tools/bin/
 #   - fix_sources.sh → ~/
+#   - update-g90-config.sh → ~/
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/CowboyPilot/ETCR5_VARA_TOOLS/main/install.sh | bash
@@ -131,7 +133,7 @@ install_10_install_all() {
   print_info "Creating directory: ${WINE_ADDONS_DIR}"
   mkdir -p "${WINE_ADDONS_DIR}"
   
-  # Download script
+  # Download main script
   print_info "Downloading 10-install_all.sh from GitHub..."
   if curl -fsSL "${REPO_URL}/10-install_all.sh" -o "${WINE_ADDONS_DIR}/10-install_all.sh"; then
     print_success "Downloaded 10-install_all.sh"
@@ -140,9 +142,18 @@ install_10_install_all() {
     return 1
   fi
   
+  # Download vara-downloader.sh
+  print_info "Downloading vara-downloader.sh from GitHub..."
+  if curl -fsSL "${REPO_URL}/vara-downloader.sh" -o "${WINE_ADDONS_DIR}/vara-downloader.sh"; then
+    print_success "Downloaded vara-downloader.sh"
+  else
+    print_warning "Failed to download vara-downloader.sh (VARA auto-download may not work)"
+  fi
+  
   # Make executable
   print_info "Setting executable permissions..."
   chmod +x "${WINE_ADDONS_DIR}/10-install_all.sh"
+  chmod +x "${WINE_ADDONS_DIR}/vara-downloader.sh" 2>/dev/null || true
   print_success "Set executable: ${WINE_ADDONS_DIR}/10-install_all.sh"
   
   echo
@@ -212,6 +223,25 @@ install_fix_sources() {
   print_success "fix_sources.sh installed successfully"
 }
 
+install_update_g90() {
+  print_header "Installing update-g90-config.sh"
+  
+  print_info "Downloading update-g90-config.sh from GitHub..."
+  if curl -fsSL "${REPO_URL}/update-g90-config.sh" -o "${HOME_DIR}/update-g90-config.sh"; then
+    print_success "Downloaded update-g90-config.sh"
+  else
+    print_error "Failed to download update-g90-config.sh"
+    return 1
+  fi
+  
+  print_info "Setting executable permissions..."
+  chmod +x "${HOME_DIR}/update-g90-config.sh"
+  print_success "Set executable: ${HOME_DIR}/update-g90-config.sh"
+  
+  echo
+  print_success "update-g90-config.sh installed successfully"
+}
+
 ################################################################################
 # Post-Installation Instructions
 ################################################################################
@@ -232,6 +262,10 @@ show_next_steps() {
   echo -e "${GREEN}3. fix_sources.sh${NC}"
   echo "   Location: ${HOME_DIR}/fix_sources.sh"
   echo "   Purpose:  Fix APT repository issues (if needed)"
+  echo
+  echo -e "${GREEN}4. update-g90-config.sh${NC}"
+  echo "   Location: ${HOME_DIR}/update-g90-config.sh"
+  echo "   Purpose:  Configure Xiegu G90 DigiRig PTT options"
   echo
   
   print_header "Next Steps"
@@ -265,6 +299,10 @@ show_next_steps() {
   
   echo -e "${BLUE}If you have APT/repository issues:${NC}"
   echo "  sudo ~/fix_sources.sh"
+  echo
+  
+  echo -e "${BLUE}If you have a Xiegu G90 with DigiRig:${NC}"
+  echo "  sudo ~/update-g90-config.sh"
   echo
   
   print_header "Installation Summary"
@@ -308,6 +346,12 @@ main() {
   echo
   install_fix_sources || {
     print_error "Failed to install fix_sources.sh"
+    echo "Continuing..."
+  }
+  
+  echo
+  install_update_g90 || {
+    print_error "Failed to install update-g90-config.sh"
     echo "Continuing..."
   }
   

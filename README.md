@@ -2,8 +2,6 @@
 
 A collection of scripts to simplify VARA modem and Winlink Express installation and management on EmComm Tools R5 (Ubuntu-based ham radio distribution).
 
-While this is designed to work with The Tech Prepper's ETC R5 distro it is not supported by him, please do not bug him with questions about this script, it is an unofficial add-on
-
 ## Features
 
 - **Automated Installation**: One-line install script that downloads and sets up everything
@@ -38,14 +36,20 @@ The installation script will:
    - Creates desktop launchers
    - Handles environment configuration
 
-2. **etc-vara** → `/opt/emcomm-tools/bin/` (requires sudo)
+2. **vara-downloader.sh** → `~/add-ons/wine/`
+   - Helper script for downloading VARA installers from Winlink
+
+3. **etc-vara** → `/opt/emcomm-tools/bin/` (requires sudo)
    - Smart launcher for VARA modems and applications
    - Dynamically allocates ports (8300-8350)
    - Supports VarAC, Winlink, and Pat combinations
 
-3. **fix_sources.sh** → `~/`
+4. **fix_sources.sh** → `~/`
    - Fixes APT repository issues on Ubuntu 22.x (especially kinetic)
    - Installs alsa-utils
+
+5. **update-g90-config.sh** → `~/`
+   - Configures Xiegu G90 for DigiRig with CAT or RTS PTT options
 
 ## Prerequisites
 
@@ -113,6 +117,21 @@ This will:
 - Update `/etc/apt/sources.list` to use the correct repositories
 - Install alsa-utils
 
+### Configuring Xiegu G90 with DigiRig
+
+If you have a Xiegu G90 radio with DigiRig interface:
+
+```bash
+cd ~/
+sudo ./update-g90-config.sh
+```
+
+This will present a menu to choose:
+1. DigiRig with CAT PTT (recommended for better PTT control)
+2. DigiRig with RTS PTT (original configuration)
+
+The script will update the radio configuration and create a backup of the original settings.
+
 ## Manual Installation
 
 If you prefer to install manually:
@@ -163,6 +182,7 @@ The scripts check for required commands and will notify you if anything is missi
 - `curl`
 - `unzip`
 - `jq` (for Pat configuration)
+- `pup` (for VARA auto-download, install with: `sudo apt install pup`)
 
 ### Port Conflicts
 
@@ -206,7 +226,7 @@ Issues, suggestions, and pull requests are welcome! This project is designed spe
 
 ## License
 
-These scripts are provided as-is for the amateur radio community. Use at your own risk.  Many of them are based on scripts written by Gaston Gonzalez (The Tech Prepper).
+These scripts are provided as-is for the amateur radio community. Use at your own risk.
 
 ## Credits
 

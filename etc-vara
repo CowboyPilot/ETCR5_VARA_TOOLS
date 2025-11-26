@@ -288,44 +288,48 @@ patch_winlink_ini() {
   cp "${WINLINK_INI}" "${WINLINK_INI}.backup" 2>/dev/null || true
 
   if [[ "${mode}" == "HF" ]]; then
-    # Patch [Vara TNC] section
-    python3 - <<PYTHON_EOF
+    # Patch [Vara TNC] section for HF
+    python3 - <<'PYTHON_EOF'
 import configparser
 import sys
+import os
 
 config = configparser.ConfigParser()
-config.read('${WINLINK_INI}')
+config.read(os.environ['WINLINK_INI'])
 
 if 'Vara TNC' not in config:
     config['Vara TNC'] = {}
 
-config['Vara TNC']['TCP Port'] = '${port}'
+config['Vara TNC']['TCP Port'] = os.environ['port']
 config['Vara TNC']['Auto Launch Vara'] = 'False'
 config['Vara TNC']['Automatically Launch Vara Tnc'] = 'False'
 
-with open('${WINLINK_INI}', 'w') as f:
-    config.write(f)
+with open(os.environ['WINLINK_INI'], 'w') as f:
+    config.write(f, space_around_delimiters=False)
 PYTHON_EOF
   else
-    # Patch [Vara FM TNC] section
-    python3 - <<PYTHON_EOF
+    # Patch [Vara FM TNC] section for FM
+    python3 - <<'PYTHON_EOF'
 import configparser
 import sys
+import os
 
 config = configparser.ConfigParser()
-config.read('${WINLINK_INI}')
+config.read(os.environ['WINLINK_INI'])
 
 if 'Vara FM TNC' not in config:
     config['Vara FM TNC'] = {}
 
-config['Vara FM TNC']['TCP Port'] = '${port}'
+config['Vara FM TNC']['TCP Port'] = os.environ['port']
 config['Vara FM TNC']['Auto Launch Vara FM'] = 'False'
 config['Vara FM TNC']['Automatically Launch Vara Fm Tnc'] = 'False'
 
-with open('${WINLINK_INI}', 'w') as f:
-    config.write(f)
+with open(os.environ['WINLINK_INI'], 'w') as f:
+    config.write(f, space_around_delimiters=False)
 PYTHON_EOF
   fi
+  
+  echo -e "${GREEN}  ✓ Winlink configured (auto-launch disabled)${NC}"
 }
 
 # Patch VarAC INI for HF or FM
@@ -340,12 +344,13 @@ patch_varac_ini() {
 
   if [[ "${mode}" == "HF" ]]; then
     # Set VarAC to use VARA HF mode
-    python3 - <<PYTHON_EOF
+    python3 - <<'PYTHON_EOF'
 import configparser
 import sys
+import os
 
 config = configparser.ConfigParser()
-config.read('${VARAC_INI}')
+config.read(os.environ['VARAC_INI'])
 
 # Main settings - set modem type to HF
 if 'Settings' not in config:
@@ -357,7 +362,7 @@ config['Settings']['VaraModemType'] = 'VaraHF'
 if 'VARAHF_CONFIG' not in config:
     config['VARAHF_CONFIG'] = {}
 config['VARAHF_CONFIG']['VaraModemType'] = 'VaraHF'
-config['VARAHF_CONFIG']['VarahfMainPort'] = '${port}'
+config['VARAHF_CONFIG']['VarahfMainPort'] = os.environ['port']
 config['VARAHF_CONFIG']['VarahfLaunchOnModemConnect'] = 'OFF'
 config['VARAHF_CONFIG']['StartModemUponStartup'] = 'OFF'
 config['VARAHF_CONFIG']['AutoStartModem'] = 'OFF'
@@ -368,17 +373,18 @@ if 'Modem' not in config:
 config['Modem']['StartModemUponStartup'] = 'OFF'
 config['Modem']['AutoLaunch'] = 'OFF'
 
-with open('${VARAC_INI}', 'w') as f:
-    config.write(f)
+with open(os.environ['VARAC_INI'], 'w') as f:
+    config.write(f, space_around_delimiters=False)
 PYTHON_EOF
   else
     # Set VarAC to use VARA FM mode
-    python3 - <<PYTHON_EOF
+    python3 - <<'PYTHON_EOF'
 import configparser
 import sys
+import os
 
 config = configparser.ConfigParser()
-config.read('${VARAC_INI}')
+config.read(os.environ['VARAC_INI'])
 
 # Main settings - set modem type to FM
 if 'Settings' not in config:
@@ -390,7 +396,7 @@ config['Settings']['VaraModemType'] = 'VaraFM'
 if 'VARAFM_CONFIG' not in config:
     config['VARAFM_CONFIG'] = {}
 config['VARAFM_CONFIG']['VaraModemType'] = 'VaraFM'
-config['VARAFM_CONFIG']['VarafmMainPort'] = '${port}'
+config['VARAFM_CONFIG']['VarafmMainPort'] = os.environ['port']
 config['VARAFM_CONFIG']['VarafmLaunchOnModemConnect'] = 'OFF'
 config['VARAFM_CONFIG']['StartModemUponStartup'] = 'OFF'
 config['VARAFM_CONFIG']['AutoStartModem'] = 'OFF'
@@ -401,10 +407,12 @@ if 'Modem' not in config:
 config['Modem']['StartModemUponStartup'] = 'OFF'
 config['Modem']['AutoLaunch'] = 'OFF'
 
-with open('${VARAC_INI}', 'w') as f:
-    config.write(f)
+with open(os.environ['VARAC_INI'], 'w') as f:
+    config.write(f, space_around_delimiters=False)
 PYTHON_EOF
   fi
+  
+  echo -e "${GREEN}  ✓ VarAC configured (auto-launch disabled)${NC}"
 }
 
 ################################################################################
@@ -518,7 +526,9 @@ main() {
       patch_varac_ini "HF" "${PORT}"
       
       echo
+      # Start VarAC first, then VARA to avoid crashes
       start_varac
+      sleep 2
       start_vara_hf
       ;;
 
@@ -539,7 +549,9 @@ main() {
       patch_varac_ini "FM" "${PORT}"
       
       echo
+      # Start VarAC first, then VARA to avoid crashes
       start_varac
+      sleep 2
       start_vara_fm
       ;;
 
