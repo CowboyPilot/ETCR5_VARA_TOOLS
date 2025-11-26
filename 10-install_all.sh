@@ -1,7 +1,7 @@
 #!/bin/bash
 # 10-install_vara_winlink.sh
 #
-# Version: 1.1.0
+# Version: 1.1.1
 #
 # Installs into a dedicated 32-bit Wine prefix:
 #   - Winlink Express
@@ -204,109 +204,71 @@ find_vara_fm_installer() {
   return 1
 }
 
-# Download VARA installer from Winlink downloads
-# Based on vara-downloader.sh by Gaston Gonzalez (28 February 2025)
+# Download VARA installer using external vara-downloader.sh script
 download_vara_installer() {
   local pattern="$1"  # Pattern to match (e.g., "VARA%20HF" or "VARA%20FM")
   local mode="$2"     # "HF" or "FM" for display purposes
   
   echo "[*] Attempting to download latest VARA ${mode} installer..."
   
-  local base_url="https://downloads.winlink.org"
-  local index_url="${base_url}/VARA%20Products/"
-  local base_html_file="${SCRIPT_DIR}/vara-index-${mode}.html"
-  
-  # Check for required commands
-  if ! command -v curl >/dev/null 2>&1; then
-    echo "[!] curl not found. Cannot download VARA installer."
+  # Check if vara-downloader.sh exists
+  if [[ ! -f "${SCRIPT_DIR}/vara-downloader.sh" ]]; then
+    echo "[!] vara-downloader.sh not found in ${SCRIPT_DIR}"
+    echo "    Download it from: https://raw.githubusercontent.com/CowboyPilot/ETCR5_VARA_TOOLS/main/vara-downloader.sh"
     return 1
   fi
   
-  if ! command -v unzip >/dev/null 2>&1; then
-    echo "[!] unzip not found. Cannot extract VARA installer."
-    return 1
-  fi
+  # Make it executable
+  chmod +x "${SCRIPT_DIR}/vara-downloader.sh"
   
-  if ! command -v pup >/dev/null 2>&1; then
-    echo "[!] pup not found. Cannot parse download page."
-    echo "    Install with: sudo apt install pup"
-    echo "    Or download VARA manually from: ${index_url}"
-    return 1
-  fi
-  
-  # 1. Fetch main VARA download page as HTML
-  echo "    Fetching VARA download page..."
-  if ! curl -s -f -L -o "${base_html_file}" "${index_url}"; then
-    echo "[!] Error fetching VARA index page: ${index_url}"
-    [[ -f "${base_html_file}" ]] && rm "${base_html_file}"
-    return 1
-  fi
-  
-  # 2. Extract all links from index page
-  local vara_file_path=""
-  vara_file_path=$(cat "${base_html_file}" | pup 'a attr{href}' | grep "${pattern}")
-  local grep_status=$?
-  
-  rm "${base_html_file}"
-  
-  if [[ ${grep_status} -ne 0 ]]; then
-    echo "[!] Error finding VARA file matching pattern: ${pattern}"
-    return 1
-  fi
-  
-  # 3. Check for multiple matches
-  if [[ "${vara_file_path}" =~ [[:space:]] ]]; then
-    echo "[!] Multiple files matched pattern: ${pattern}"
-    echo "    Matched files:"
-    echo "${vara_file_path}"
-    return 1
-  fi
-  
-  local full_url="${base_url}${vara_file_path}"
-  local zip_filename=$(basename "${vara_file_path}")
-  
-  echo "    Found: ${zip_filename}"
-  echo "    Downloading: ${full_url}"
-  
-  # 4. Download the ZIP file
-  local cwd=$(pwd)
+  # Save current directory and switch to script directory
+  local original_dir=$(pwd)
   cd "${SCRIPT_DIR}"
   
-  if ! curl -s -f -L -O "${full_url}"; then
-    echo "[!] Failed to download ${zip_filename}"
-    cd "${cwd}"
+  # Call vara-downloader.sh
+  if ! ./vara-downloader.sh "${pattern}"; then
+    echo "[!] Failed to download VARA ${mode} installer"
+    cd "${original_dir}"
     return 1
   fi
   
-  echo "    Downloaded: ${zip_filename}"
+  # Find the downloaded ZIP file
+  local zip_file=""
+  zip_file=$(ls -1t *.zip 2>/dev/null | grep "${pattern}" | head -n 1 || true)
   
-  # 5. Extract the ZIP file
-  echo "    Extracting ${zip_filename}..."
-  if ! unzip -o "${zip_filename}" >/dev/null 2>&1; then
-    echo "[!] Failed to extract ${zip_filename}"
-    rm "${zip_filename}"
-    cd "${cwd}"
+  if [[ -z "${zip_file}" ]]; then
+    echo "[!] Downloaded ZIP file not found"
+    cd "${original_dir}"
     return 1
   fi
   
-  # 6. Find the .exe installer
+  echo "    Extracting ${zip_file}..."
+  if ! unzip -o "${zip_file}" >/dev/null 2>&1; then
+    echo "[!] Failed to extract ${zip_file}"
+    cd "${original_dir}"
+    return 1
+  fi
+  
+  # Find the extracted .exe
   local exe_file=""
-  exe_file=$(find "${SCRIPT_DIR}" -maxdepth 1 -name "*.exe" -newer "${zip_filename}" | head -n 1 || true)
+  exe_file=$(find . -maxdepth 1 -name "*.exe" -newer "${zip_file}" | head -n 1 || true)
   
   if [[ -z "${exe_file}" ]]; then
-    echo "[!] No .exe installer found after extracting ${zip_filename}"
-    rm "${zip_filename}"
-    cd "${cwd}"
+    echo "[!] No .exe installer found after extracting ${zip_file}"
+    cd "${original_dir}"
     return 1
   fi
+  
+  # Get the full path
+  local exe_path="${SCRIPT_DIR}/$(basename "${exe_file}")"
   
   echo "    Extracted: $(basename "${exe_file}")"
   
-  # 7. Cleanup ZIP file
-  rm "${zip_filename}"
+  # Return to original directory
+  cd "${original_dir}"
   
-  cd "${cwd}"
-  echo "${exe_file}"
+  # Return the full path to the exe
+  echo "${exe_path}"
   return 0
 }
 
