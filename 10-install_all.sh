@@ -1,11 +1,13 @@
 #!/bin/bash
 # 10-install_vara_winlink.sh
 #
+# Version: 1.1.0
+#
 # Installs into a dedicated 32-bit Wine prefix:
 #   - Winlink Express
 #   - VarAC (VARA Chat)  (if VarAC_Installer*.exe is present)
-#   - VARA HF
-#   - VARA FM
+#   - VARA HF (auto-downloads if not found)
+#   - VARA FM (auto-downloads if not found)
 #
 # Wine prefix used:
 #   ~/.wine32
@@ -22,6 +24,8 @@
 
 set -euo pipefail
 
+VERSION="1.1.0"
+
 PREFIX="${HOME}/.wine32"
 WINLINK_ZIP_URL="https://downloads.winlink.org/User%20Programs/Winlink_Express_install_1-7-28-0.zip"
 WINLINK_ZIP_FILE="Winlink_Express.zip"
@@ -31,7 +35,7 @@ cd "${SCRIPT_DIR}"
 
 echo
 echo "============================================================="
-echo "   Installer: Winlink + VarAC + VARA HF/FM"
+echo "   Installer: Winlink + VarAC + VARA HF/FM  v${VERSION}"
 echo "             Wine prefix: ${PREFIX}"
 echo "============================================================="
 echo
@@ -201,118 +205,108 @@ find_vara_fm_installer() {
 }
 
 # Download VARA installer from Winlink downloads
-# Based on vara-downloader.sh by Gaston Gonzalez
+# Based on vara-downloader.sh by Gaston Gonzalez (28 February 2025)
 download_vara_installer() {
-  local pattern="$1"  # Pattern to match (e.g., "VARA HF" or "VARA FM")
+  local pattern="$1"  # Pattern to match (e.g., "VARA%20HF" or "VARA%20FM")
   local mode="$2"     # "HF" or "FM" for display purposes
   
   echo "[*] Attempting to download latest VARA ${mode} installer..."
   
   local base_url="https://downloads.winlink.org"
   local index_url="${base_url}/VARA%20Products/"
-  local tmp_html=$(mktemp)
+  local base_html_file="${SCRIPT_DIR}/vara-index-${mode}.html"
   
   # Check for required commands
   if ! command -v curl >/dev/null 2>&1; then
     echo "[!] curl not found. Cannot download VARA installer."
-    rm "${tmp_html}"
     return 1
   fi
   
   if ! command -v unzip >/dev/null 2>&1; then
     echo "[!] unzip not found. Cannot extract VARA installer."
-    rm "${tmp_html}"
     return 1
   fi
   
-  # Check for pup (required for reliable HTML parsing)
   if ! command -v pup >/dev/null 2>&1; then
-    echo "[!] pup not found. Cannot parse download page reliably."
+    echo "[!] pup not found. Cannot parse download page."
     echo "    Install with: sudo apt install pup"
-    echo "    Or download VARA manually from:"
-    echo "    ${index_url}"
-    rm "${tmp_html}"
+    echo "    Or download VARA manually from: ${index_url}"
     return 1
   fi
   
-  # Fetch the VARA products index page
+  # 1. Fetch main VARA download page as HTML
   echo "    Fetching VARA download page..."
-  if ! curl -s -f -L -o "${tmp_html}" "${index_url}"; then
-    echo "[!] Failed to fetch VARA download page"
-    rm "${tmp_html}"
+  if ! curl -s -f -L -o "${base_html_file}" "${index_url}"; then
+    echo "[!] Error fetching VARA index page: ${index_url}"
+    [[ -f "${base_html_file}" ]] && rm "${base_html_file}"
     return 1
   fi
   
-  # Extract links using pup (matches vara-downloader.sh logic)
-  # Files are like: "VARA HF v4.8.9 setup.zip" or "VARA FM v4.3.9 setup.zip"
+  # 2. Extract all links from index page
   local vara_file_path=""
-  vara_file_path=$(cat "${tmp_html}" | pup 'a attr{href}' | grep "${pattern}" | head -n 1 || true)
+  vara_file_path=$(cat "${base_html_file}" | pup 'a attr{href}' | grep "${pattern}")
+  local grep_status=$?
   
-  rm "${tmp_html}"
+  rm "${base_html_file}"
   
-  if [[ -z "${vara_file_path}" ]]; then
-    echo "[!] Could not find VARA ${mode} installer matching pattern: ${pattern}"
-    echo "    Available files can be viewed at:"
-    echo "    ${index_url}"
+  if [[ ${grep_status} -ne 0 ]]; then
+    echo "[!] Error finding VARA file matching pattern: ${pattern}"
     return 1
   fi
   
-  # Check for multiple matches (though head -n 1 prevents this)
+  # 3. Check for multiple matches
   if [[ "${vara_file_path}" =~ [[:space:]] ]]; then
-    echo "[!] Multiple files matched pattern. Using first match."
+    echo "[!] Multiple files matched pattern: ${pattern}"
+    echo "    Matched files:"
+    echo "${vara_file_path}"
+    return 1
   fi
   
-  # Construct full URL (matches vara-downloader.sh: BASE_URL + VARA_FILE_PATH)
   local full_url="${base_url}${vara_file_path}"
-  local filename=$(basename "${vara_file_path}")
-  local dest_file="${SCRIPT_DIR}/${filename}"
+  local zip_filename=$(basename "${vara_file_path}")
   
-  echo "    Found: ${filename}"
-  echo "    Downloading from: ${full_url}"
+  echo "    Found: ${zip_filename}"
+  echo "    Downloading: ${full_url}"
   
-  # Download ZIP file
-  if ! curl -s -f -L -o "${dest_file}" "${full_url}"; then
-    echo "[!] Failed to download VARA ${mode} installer"
-    echo "    URL attempted: ${full_url}"
-    [[ -f "${dest_file}" ]] && rm "${dest_file}"
+  # 4. Download the ZIP file
+  local cwd=$(pwd)
+  cd "${SCRIPT_DIR}"
+  
+  if ! curl -s -f -L -O "${full_url}"; then
+    echo "[!] Failed to download ${zip_filename}"
+    cd "${cwd}"
     return 1
   fi
   
-  echo "    Downloaded: ${dest_file}"
+  echo "    Downloaded: ${zip_filename}"
   
-  # Extract the ZIP file to get the .exe installer
-  echo "    Extracting ${filename}..."
-  local extract_dir="${SCRIPT_DIR}/vara_${mode}_extract"
-  mkdir -p "${extract_dir}"
-  
-  if ! unzip -q -o "${dest_file}" -d "${extract_dir}"; then
-    echo "[!] Failed to extract ${filename}"
-    rm -rf "${extract_dir}"
-    rm "${dest_file}"
+  # 5. Extract the ZIP file
+  echo "    Extracting ${zip_filename}..."
+  if ! unzip -o "${zip_filename}" >/dev/null 2>&1; then
+    echo "[!] Failed to extract ${zip_filename}"
+    rm "${zip_filename}"
+    cd "${cwd}"
     return 1
   fi
   
-  # Find the .exe file in the extracted contents
+  # 6. Find the .exe installer
   local exe_file=""
-  exe_file=$(find "${extract_dir}" -type f -name "*.exe" | head -n 1 || true)
+  exe_file=$(find "${SCRIPT_DIR}" -maxdepth 1 -name "*.exe" -newer "${zip_filename}" | head -n 1 || true)
   
   if [[ -z "${exe_file}" ]]; then
-    echo "[!] No .exe installer found in ${filename}"
-    rm -rf "${extract_dir}"
-    rm "${dest_file}"
+    echo "[!] No .exe installer found after extracting ${zip_filename}"
+    rm "${zip_filename}"
+    cd "${cwd}"
     return 1
   fi
   
-  # Move the .exe to script directory
-  local exe_basename=$(basename "${exe_file}")
-  mv "${exe_file}" "${SCRIPT_DIR}/${exe_basename}"
+  echo "    Extracted: $(basename "${exe_file}")"
   
-  # Cleanup
-  rm -rf "${extract_dir}"
-  rm "${dest_file}"
+  # 7. Cleanup ZIP file
+  rm "${zip_filename}"
   
-  echo "    Extracted to: ${SCRIPT_DIR}/${exe_basename}"
-  echo "${SCRIPT_DIR}/${exe_basename}"
+  cd "${cwd}"
+  echo "${exe_file}"
   return 0
 }
 
@@ -544,8 +538,8 @@ else
     # Try to download if not found
     echo "[!] VARA HF installer not found locally."
     echo "[*] Attempting to download latest version from Winlink..."
-    # Pattern: "VARA HF" matches "VARA HF v4.8.9 setup.zip"
-    if VARA_HF_INSTALLER=$(download_vara_installer "VARA HF" "HF"); then
+    # Pattern: "VARA%20HF" matches "VARA HF v4.8.9 setup.zip"
+    if VARA_HF_INSTALLER=$(download_vara_installer "VARA%20HF" "HF"); then
       echo "[*] Successfully downloaded VARA HF installer"
     else
       echo "[!] Could not download VARA HF installer automatically."
@@ -586,8 +580,8 @@ else
     # Try to download if not found
     echo "[!] VARA FM installer not found locally."
     echo "[*] Attempting to download latest version from Winlink..."
-    # Pattern: "VARA FM" matches "VARA FM v4.3.9 setup.zip"
-    if VARA_FM_INSTALLER=$(download_vara_installer "VARA FM" "FM"); then
+    # Pattern: "VARA%20FM" matches "VARA FM v4.3.9 setup.zip"
+    if VARA_FM_INSTALLER=$(download_vara_installer "VARA%20FM" "FM"); then
       echo "[*] Successfully downloaded VARA FM installer"
     else
       echo "[!] Could not download VARA FM installer automatically."
@@ -763,7 +757,8 @@ xdg-desktop-menu forceupdate 2>/dev/null || true
 
 echo
 echo "============================================================="
-echo "   Winlink + VarAC + VARA HF/FM installation COMPLETE"
+echo "   Winlink + VarAC + VARA HF/FM  v${VERSION}"
+echo "              Installation COMPLETE"
 echo "============================================================="
 echo "Launchers should appear under:  Applications → Ham Radio"
 echo

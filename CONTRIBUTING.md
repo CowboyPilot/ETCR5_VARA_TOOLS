@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to this project! This guide will help you get started.
 
+This is not something I plan on updating regularly but feel free to clone and modify as you see fit.  Anything that makes things better for everyone else.
+
 ## How to Contribute
 
 ### Reporting Issues
@@ -24,6 +26,9 @@ We welcome suggestions! Please open an issue with:
 - Clear description of the enhancement
 - Use case / why it would be helpful
 - Any implementation ideas you have
+
+Again I can't promise I'll get around to fiddling with it but if it's helpful I may see what I can do.
+
 
 ### Pull Requests
 
