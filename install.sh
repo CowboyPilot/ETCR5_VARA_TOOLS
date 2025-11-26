@@ -3,10 +3,10 @@
 # ETC R5 VARA Tools Installer
 #
 # This script downloads and installs all VARA tools for EmComm Tools R5:
-#   - 10-install_all.sh → ~/add-ons/wine/
+#   - 10-install-all.sh → ~/add-ons/wine/
 #   - vara-downloader.sh → ~/add-ons/wine/
 #   - etc-vara → /opt/emcomm-tools/bin/
-#   - fix_sources.sh → ~/
+#   - fix-sources.sh → ~/
 #   - update-g90-config.sh → ~/
 #
 # Usage:
@@ -126,19 +126,19 @@ preflight_checks() {
 # Installation Functions
 ################################################################################
 
-install_10_install_all() {
-  print_header "Installing 10-install_all.sh"
+install_10_install-all() {
+  print_header "Installing 10-install-all.sh"
   
   # Create directory if it doesn't exist
   print_info "Creating directory: ${WINE_ADDONS_DIR}"
   mkdir -p "${WINE_ADDONS_DIR}"
   
   # Download main script
-  print_info "Downloading 10-install_all.sh from GitHub..."
-  if curl -fsSL "${REPO_URL}/10-install_all.sh" -o "${WINE_ADDONS_DIR}/10-install_all.sh"; then
-    print_success "Downloaded 10-install_all.sh"
+  print_info "Downloading 10-install-all.sh from GitHub..."
+  if curl -fsSL "${REPO_URL}/10-install-all.sh" -o "${WINE_ADDONS_DIR}/10-install-all.sh"; then
+    print_success "Downloaded 10-install-all.sh"
   else
-    print_error "Failed to download 10-install_all.sh"
+    print_error "Failed to download 10-install-all.sh"
     return 1
   fi
   
@@ -152,12 +152,12 @@ install_10_install_all() {
   
   # Make executable
   print_info "Setting executable permissions..."
-  chmod +x "${WINE_ADDONS_DIR}/10-install_all.sh"
+  chmod +x "${WINE_ADDONS_DIR}/10-install-all.sh"
   chmod +x "${WINE_ADDONS_DIR}/vara-downloader.sh" 2>/dev/null || true
-  print_success "Set executable: ${WINE_ADDONS_DIR}/10-install_all.sh"
+  print_success "Set executable: ${WINE_ADDONS_DIR}/10-install-all.sh"
   
   echo
-  print_success "10-install_all.sh installed successfully"
+  print_success "10-install-all.sh installed successfully"
 }
 
 install_etc_vara() {
@@ -204,23 +204,23 @@ install_etc_vara() {
   print_success "etc-vara installed successfully"
 }
 
-install_fix_sources() {
-  print_header "Installing fix_sources.sh"
+install_fix-sources() {
+  print_header "Installing fix-sources.sh"
   
-  print_info "Downloading fix_sources.sh from GitHub..."
-  if curl -fsSL "${REPO_URL}/fix_sources.sh" -o "${HOME_DIR}/fix_sources.sh"; then
-    print_success "Downloaded fix_sources.sh"
+  print_info "Downloading fix-sources.sh from GitHub..."
+  if curl -fsSL "${REPO_URL}/fix-sources.sh" -o "${HOME_DIR}/fix-sources.sh"; then
+    print_success "Downloaded fix-sources.sh"
   else
-    print_error "Failed to download fix_sources.sh"
+    print_error "Failed to download fix-sources.sh"
     return 1
   fi
   
   print_info "Setting executable permissions..."
-  chmod +x "${HOME_DIR}/fix_sources.sh"
-  print_success "Set executable: ${HOME_DIR}/fix_sources.sh"
+  chmod +x "${HOME_DIR}/fix-sources.sh"
+  print_success "Set executable: ${HOME_DIR}/fix-sources.sh"
   
   echo
-  print_success "fix_sources.sh installed successfully"
+  print_success "fix-sources.sh installed successfully"
 }
 
 install_update_g90() {
@@ -251,16 +251,16 @@ show_next_steps() {
   
   echo "All scripts have been installed:"
   echo
-  echo -e "${GREEN}1. 10-install_all.sh${NC}"
-  echo "   Location: ${WINE_ADDONS_DIR}/10-install_all.sh"
+  echo -e "${GREEN}1. 10-install-all.sh${NC}"
+  echo "   Location: ${WINE_ADDONS_DIR}/10-install-all.sh"
   echo "   Purpose:  Install Winlink, VarAC, and VARA HF/FM"
   echo
   echo -e "${GREEN}2. etc-vara${NC}"
   echo "   Location: ${ETC_BIN_DIR}/etc-vara"
   echo "   Purpose:  Launch VARA applications with smart port management"
   echo
-  echo -e "${GREEN}3. fix_sources.sh${NC}"
-  echo "   Location: ${HOME_DIR}/fix_sources.sh"
+  echo -e "${GREEN}3. fix-sources.sh${NC}"
+  echo "   Location: ${HOME_DIR}/fix-sources.sh"
   echo "   Purpose:  Fix APT repository issues (if needed)"
   echo
   echo -e "${GREEN}4. update-g90-config.sh${NC}"
@@ -287,7 +287,7 @@ show_next_steps() {
   
   echo -e "${BLUE}To install VARA applications:${NC}"
   echo "  cd ${WINE_ADDONS_DIR}"
-  echo "  ./10-install_all.sh"
+  echo "  ./10-install-all.sh"
   echo
   echo -e "${GREEN}Note:${NC} The first run may patch your environment and require"
   echo "      you to log out and back in. After re-logging, run it again."
@@ -298,7 +298,7 @@ show_next_steps() {
   echo
   
   echo -e "${BLUE}If you have APT/repository issues:${NC}"
-  echo "  sudo ~/fix_sources.sh"
+  echo "  sudo ~/fix-sources.sh"
   echo
   
   echo -e "${BLUE}If you have a Xiegu G90 with DigiRig:${NC}"
@@ -332,8 +332,8 @@ main() {
   
   # Install components
   echo
-  install_10_install_all || {
-    print_error "Failed to install 10-install_all.sh"
+  install_10_install-all || {
+    print_error "Failed to install 10-install-all.sh"
     echo "Continuing with other installations..."
   }
   
@@ -344,8 +344,8 @@ main() {
   }
   
   echo
-  install_fix_sources || {
-    print_error "Failed to install fix_sources.sh"
+  install_fix-sources || {
+    print_error "Failed to install fix-sources.sh"
     echo "Continuing..."
   }
   
