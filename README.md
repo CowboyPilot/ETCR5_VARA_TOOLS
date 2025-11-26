@@ -2,6 +2,8 @@
 
 A collection of scripts to simplify VARA modem and Winlink Express installation and management on EmComm Tools R5 (Ubuntu-based ham radio distribution).
 
+While this is designed to work with The Tech Prepper's ETC R5 distro it is not supported by him, please do not bug him with questions about this script, it is an unofficial add-on
+
 ## Features
 
 - **Automated Installation**: One-line install script that downloads and sets up everything
