@@ -201,8 +201,9 @@ find_vara_fm_installer() {
 }
 
 # Download VARA installer from Winlink downloads
+# Based on vara-downloader.sh by Gaston Gonzalez
 download_vara_installer() {
-  local pattern="$1"  # Pattern to match (e.g., "VARA setup" or "VARAFM")
+  local pattern="$1"  # Pattern to match (e.g., "VARA HF" or "VARA FM")
   local mode="$2"     # "HF" or "FM" for display purposes
   
   echo "[*] Attempting to download latest VARA ${mode} installer..."
@@ -218,36 +219,50 @@ download_vara_installer() {
     return 1
   fi
   
+  if ! command -v unzip >/dev/null 2>&1; then
+    echo "[!] unzip not found. Cannot extract VARA installer."
+    rm "${tmp_html}"
+    return 1
+  fi
+  
+  # Check for pup (required for reliable HTML parsing)
+  if ! command -v pup >/dev/null 2>&1; then
+    echo "[!] pup not found. Cannot parse download page reliably."
+    echo "    Install with: sudo apt install pup"
+    echo "    Or download VARA manually from:"
+    echo "    ${index_url}"
+    rm "${tmp_html}"
+    return 1
+  fi
+  
   # Fetch the VARA products index page
   echo "    Fetching VARA download page..."
-  if ! curl -s -f -L -o "${tmp_html}" "${index_url}" 2>/dev/null; then
+  if ! curl -s -f -L -o "${tmp_html}" "${index_url}"; then
     echo "[!] Failed to fetch VARA download page"
     rm "${tmp_html}"
     return 1
   fi
   
-  # Extract links - try with pup first, fall back to grep if not available
+  # Extract links using pup (matches vara-downloader.sh logic)
+  # Files are like: "VARA HF v4.8.9 setup.zip" or "VARA FM v4.3.9 setup.zip"
   local vara_file_path=""
-  if command -v pup >/dev/null 2>&1; then
-    vara_file_path=$(pup 'a attr{href}' < "${tmp_html}" | grep -i "${pattern}" | head -n 1 || true)
-  else
-    # Fallback: use grep to extract href attributes
-    vara_file_path=$(grep -oP 'href="\K[^"]*' "${tmp_html}" | grep -i "${pattern}" | head -n 1 || true)
-  fi
+  vara_file_path=$(cat "${tmp_html}" | pup 'a attr{href}' | grep "${pattern}" | head -n 1 || true)
   
   rm "${tmp_html}"
   
   if [[ -z "${vara_file_path}" ]]; then
     echo "[!] Could not find VARA ${mode} installer matching pattern: ${pattern}"
+    echo "    Available files can be viewed at:"
+    echo "    ${index_url}"
     return 1
   fi
   
-  # Check for multiple matches
+  # Check for multiple matches (though head -n 1 prevents this)
   if [[ "${vara_file_path}" =~ [[:space:]] ]]; then
-    echo "[!] Multiple files matched. This shouldn't happen with head -n 1."
-    return 1
+    echo "[!] Multiple files matched pattern. Using first match."
   fi
   
+  # Construct full URL (matches vara-downloader.sh: BASE_URL + VARA_FILE_PATH)
   local full_url="${base_url}${vara_file_path}"
   local filename=$(basename "${vara_file_path}")
   local dest_file="${SCRIPT_DIR}/${filename}"
@@ -255,16 +270,50 @@ download_vara_installer() {
   echo "    Found: ${filename}"
   echo "    Downloading from: ${full_url}"
   
-  # Download to script directory
-  if curl -s -f -L -o "${dest_file}" "${full_url}" 2>/dev/null; then
-    echo "    Downloaded to: ${dest_file}"
-    echo "${dest_file}"
-    return 0
-  else
+  # Download ZIP file
+  if ! curl -s -f -L -o "${dest_file}" "${full_url}"; then
     echo "[!] Failed to download VARA ${mode} installer"
+    echo "    URL attempted: ${full_url}"
     [[ -f "${dest_file}" ]] && rm "${dest_file}"
     return 1
   fi
+  
+  echo "    Downloaded: ${dest_file}"
+  
+  # Extract the ZIP file to get the .exe installer
+  echo "    Extracting ${filename}..."
+  local extract_dir="${SCRIPT_DIR}/vara_${mode}_extract"
+  mkdir -p "${extract_dir}"
+  
+  if ! unzip -q -o "${dest_file}" -d "${extract_dir}"; then
+    echo "[!] Failed to extract ${filename}"
+    rm -rf "${extract_dir}"
+    rm "${dest_file}"
+    return 1
+  fi
+  
+  # Find the .exe file in the extracted contents
+  local exe_file=""
+  exe_file=$(find "${extract_dir}" -type f -name "*.exe" | head -n 1 || true)
+  
+  if [[ -z "${exe_file}" ]]; then
+    echo "[!] No .exe installer found in ${filename}"
+    rm -rf "${extract_dir}"
+    rm "${dest_file}"
+    return 1
+  fi
+  
+  # Move the .exe to script directory
+  local exe_basename=$(basename "${exe_file}")
+  mv "${exe_file}" "${SCRIPT_DIR}/${exe_basename}"
+  
+  # Cleanup
+  rm -rf "${extract_dir}"
+  rm "${dest_file}"
+  
+  echo "    Extracted to: ${SCRIPT_DIR}/${exe_basename}"
+  echo "${SCRIPT_DIR}/${exe_basename}"
+  return 0
 }
 
 # Helper: create vara.cmd wrapper next to modem EXE
@@ -495,7 +544,8 @@ else
     # Try to download if not found
     echo "[!] VARA HF installer not found locally."
     echo "[*] Attempting to download latest version from Winlink..."
-    if VARA_HF_INSTALLER=$(download_vara_installer "VARA setup" "HF"); then
+    # Pattern: "VARA HF" matches "VARA HF v4.8.9 setup.zip"
+    if VARA_HF_INSTALLER=$(download_vara_installer "VARA HF" "HF"); then
       echo "[*] Successfully downloaded VARA HF installer"
     else
       echo "[!] Could not download VARA HF installer automatically."
@@ -536,7 +586,8 @@ else
     # Try to download if not found
     echo "[!] VARA FM installer not found locally."
     echo "[*] Attempting to download latest version from Winlink..."
-    if VARA_FM_INSTALLER=$(download_vara_installer "VARAFM" "FM"); then
+    # Pattern: "VARA FM" matches "VARA FM v4.3.9 setup.zip"
+    if VARA_FM_INSTALLER=$(download_vara_installer "VARA FM" "FM"); then
       echo "[*] Successfully downloaded VARA FM installer"
     else
       echo "[!] Could not download VARA FM installer automatically."
