@@ -1,7 +1,7 @@
 #!/bin/bash
-# 10-install_vara_winlink.sh
+# 10-install-all.sh
 #
-# Version: 1.1.1
+# Version: 1.2.0
 #
 # Installs into a dedicated 32-bit Wine prefix:
 #   - Winlink Express
@@ -24,11 +24,13 @@
 
 set -euo pipefail
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 
 PREFIX="${HOME}/.wine32"
 WINLINK_ZIP_URL="https://downloads.winlink.org/User%20Programs/Winlink_Express_install_1-7-28-0.zip"
 WINLINK_ZIP_FILE="Winlink_Express.zip"
+USER_CONFIG="${HOME}/.config/emcomm-tools/user.json"
+VARA_KEY_FILE="${HOME}/vara_key"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
@@ -45,7 +47,7 @@ if [[ "${EUID}" -eq 0 ]]; then
   exit 1
 fi
 
-for cmd in wine wineboot winetricks wget unzip curl; do
+for cmd in wine wineboot winetricks wget unzip curl jq; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     echo "ERROR: Required command '${cmd}' is missing."
     echo "       Please install '${cmd}' and rerun."
@@ -56,6 +58,70 @@ done
 if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
   echo "ERROR: Must run from a graphical desktop session."
   exit 1
+fi
+
+# -------------------------------------------------------------
+#   Read user configuration from user.json
+# -------------------------------------------------------------
+echo "[*] Reading user configuration from ${USER_CONFIG}..."
+
+if [[ ! -f "${USER_CONFIG}" ]]; then
+  echo "ERROR: User configuration file not found: ${USER_CONFIG}"
+  echo "       Please run 'et-user' first to configure your callsign and settings."
+  exit 1
+fi
+
+# Read JSON values
+USER_CALLSIGN=$(jq -r '.callsign // "N0CALL"' "${USER_CONFIG}")
+USER_GRID=$(jq -r '.grid // "DM33"' "${USER_CONFIG}")
+USER_WINLINK_PASSWD=$(jq -r '.winlinkPasswd // "NOPASS"' "${USER_CONFIG}")
+
+# Check if user has configured their callsign
+if [[ "${USER_CALLSIGN}" == "N0CALL" ]]; then
+  echo
+  echo "============================================================="
+  echo "  ERROR: Default callsign detected (N0CALL)"
+  echo "============================================================="
+  echo "  Please run 'et-user' to configure your callsign, grid square,"
+  echo "  and Winlink password before running this installer."
+  echo
+  exit 1
+fi
+
+echo "    Callsign: ${USER_CALLSIGN}"
+echo "    Grid Square: ${USER_GRID}"
+echo "    Winlink Password: [configured]"
+
+# -------------------------------------------------------------
+#   Read or prompt for VARA registration key
+# -------------------------------------------------------------
+VARA_REG_KEY=""
+
+if [[ -f "${VARA_KEY_FILE}" ]]; then
+  echo "[*] Reading VARA registration key from ${VARA_KEY_FILE}..."
+  VARA_REG_KEY=$(cat "${VARA_KEY_FILE}" | tr -d '[:space:]')
+  echo "    VARA Key: [found]"
+else
+  echo
+  echo "============================================================="
+  echo "  VARA Registration Key"
+  echo "============================================================="
+  echo "  VARA HF and VARA FM require a registration key for full"
+  echo "  functionality. You can run in trial mode or enter your key now."
+  echo
+  echo "  To purchase a key, visit:"
+  echo "    https://rosmodem.wordpress.com/"
+  echo
+  read -r -p "Enter your VARA registration key (or press Enter to skip): " VARA_REG_KEY
+  
+  if [[ -n "${VARA_REG_KEY}" ]]; then
+    # Remove any whitespace
+    VARA_REG_KEY=$(echo "${VARA_REG_KEY}" | tr -d '[:space:]')
+    echo "${VARA_REG_KEY}" > "${VARA_KEY_FILE}"
+    echo "[*] VARA registration key saved to ${VARA_KEY_FILE}"
+  else
+    echo "[*] Continuing without VARA registration key (trial mode)"
+  fi
 fi
 
 # -------------------------------------------------------------
@@ -130,7 +196,7 @@ if [[ "${CURRENT_WA}" != "win32" ]]; then
   echo "  1) Log out of your desktop session (or SSH session) completely."
   echo "  2) Log back in, so the new WINEARCH=win32 takes effect."
   echo "  3) Re-run this installer:"
-  echo "       ${SCRIPT_DIR}/10-install_vara_winlink.sh"
+  echo "       ${SCRIPT_DIR}/10-install-all.sh"
   echo
   echo "After your next login, 'echo \$WINEARCH' should output: win32"
   echo "Only then will this script continue with installation."
@@ -176,6 +242,78 @@ find_varac_installer() {
   return 1
 }
 
+# Download VARA installer using external vara-downloader.sh script
+download_vara_installer() {
+  local pattern="$1"  # Pattern to match (e.g., "VARA%20HF" or "VARA%20FM")
+  local mode="$2"     # "HF" or "FM" for display purposes
+  
+  echo "[*] Attempting to download latest VARA ${mode} installer..." >&2
+  
+  # Check if vara-downloader.sh exists
+  if [[ ! -f "${SCRIPT_DIR}/vara-downloader.sh" ]]; then
+    echo "[!] vara-downloader.sh not found in ${SCRIPT_DIR}" >&2
+    echo "    Download it from: https://github.com/thetechprepper/emcomm-tools-os-community/blob/main/overlay/etc/skel/add-ons/wine/vara-downloader.sh" >&2
+    return 1
+  fi
+  
+  # Make it executable
+  chmod +x "${SCRIPT_DIR}/vara-downloader.sh"
+  
+  # Save current directory and switch to script directory
+  local original_dir=$(pwd)
+  cd "${SCRIPT_DIR}"
+  
+  # Call vara-downloader.sh
+  if ! ./vara-downloader.sh "${pattern}"; then
+    echo "[!] Failed to download VARA ${mode} installer" >&2
+    cd "${original_dir}"
+    return 1
+  fi
+  
+  # Find the downloaded ZIP file - look for most recent .zip file
+  local zip_file=""
+  zip_file=$(ls -1t *.zip 2>/dev/null | head -n 1 || true)
+  
+  if [[ -z "${zip_file}" ]]; then
+    echo "[!] Downloaded ZIP file not found" >&2
+    cd "${original_dir}"
+    return 1
+  fi
+  
+  echo "    Extracting ${zip_file}..." >&2
+  if ! unzip -o "${zip_file}" >/dev/null 2>&1; then
+    echo "[!] Failed to extract ${zip_file}" >&2
+    cd "${original_dir}"
+    return 1
+  fi
+  
+  # Find the extracted .exe - for HF look for VARA.exe-like names, for FM look for VaraFM/VARAFM
+  local exe_file=""
+  if [[ "${mode}" == "HF" ]]; then
+    exe_file=$(find . -maxdepth 1 -name "*.exe" -newer "${zip_file}" | grep -iv "fm" | head -n 1 || true)
+  else
+    exe_file=$(find . -maxdepth 1 -name "*.exe" -newer "${zip_file}" | grep -i "fm" | head -n 1 || true)
+  fi
+  
+  if [[ -z "${exe_file}" ]]; then
+    echo "[!] No .exe installer found after extracting ${zip_file}" >&2
+    cd "${original_dir}"
+    return 1
+  fi
+  
+  # Get the full path
+  local exe_path="${SCRIPT_DIR}/$(basename "${exe_file}")"
+  
+  echo "    Extracted: $(basename "${exe_file}")" >&2
+  
+  # Return to original directory
+  cd "${original_dir}"
+  
+  # Return the full path to the exe (only this goes to stdout)
+  echo "${exe_path}"
+  return 0
+}
+
 # VARA HF installer: prefer names containing "VARA" but NOT "FM"
 find_vara_hf_installer() {
   local dirs=("${SCRIPT_DIR}" "${HOME}/Downloads")
@@ -202,74 +340,6 @@ find_vara_fm_installer() {
     fi
   done
   return 1
-}
-
-# Download VARA installer using external vara-downloader.sh script
-download_vara_installer() {
-  local pattern="$1"  # Pattern to match (e.g., "VARA%20HF" or "VARA%20FM")
-  local mode="$2"     # "HF" or "FM" for display purposes
-  
-  echo "[*] Attempting to download latest VARA ${mode} installer..."
-  
-  # Check if vara-downloader.sh exists
-  if [[ ! -f "${SCRIPT_DIR}/vara-downloader.sh" ]]; then
-    echo "[!] vara-downloader.sh not found in ${SCRIPT_DIR}"
-    echo "    Download it from: https://raw.githubusercontent.com/CowboyPilot/ETCR5_VARA_TOOLS/main/vara-downloader.sh"
-    return 1
-  fi
-  
-  # Make it executable
-  chmod +x "${SCRIPT_DIR}/vara-downloader.sh"
-  
-  # Save current directory and switch to script directory
-  local original_dir=$(pwd)
-  cd "${SCRIPT_DIR}"
-  
-  # Call vara-downloader.sh
-  if ! ./vara-downloader.sh "${pattern}"; then
-    echo "[!] Failed to download VARA ${mode} installer"
-    cd "${original_dir}"
-    return 1
-  fi
-  
-  # Find the downloaded ZIP file
-  local zip_file=""
-  zip_file=$(ls -1t *.zip 2>/dev/null | grep "${pattern}" | head -n 1 || true)
-  
-  if [[ -z "${zip_file}" ]]; then
-    echo "[!] Downloaded ZIP file not found"
-    cd "${original_dir}"
-    return 1
-  fi
-  
-  echo "    Extracting ${zip_file}..."
-  if ! unzip -o "${zip_file}" >/dev/null 2>&1; then
-    echo "[!] Failed to extract ${zip_file}"
-    cd "${original_dir}"
-    return 1
-  fi
-  
-  # Find the extracted .exe
-  local exe_file=""
-  exe_file=$(find . -maxdepth 1 -name "*.exe" -newer "${zip_file}" | head -n 1 || true)
-  
-  if [[ -z "${exe_file}" ]]; then
-    echo "[!] No .exe installer found after extracting ${zip_file}"
-    cd "${original_dir}"
-    return 1
-  fi
-  
-  # Get the full path
-  local exe_path="${SCRIPT_DIR}/$(basename "${exe_file}")"
-  
-  echo "    Extracted: $(basename "${exe_file}")"
-  
-  # Return to original directory
-  cd "${original_dir}"
-  
-  # Return the full path to the exe
-  echo "${exe_path}"
-  return 0
 }
 
 # Helper: create vara.cmd wrapper next to modem EXE
@@ -327,6 +397,128 @@ fix_pdh_dll_for_vara_dir() {
   else
     echo "[*] nt4pdhdll.exe already present in '${vara_dir}', skipping pdh.dll fix."
   fi
+}
+
+# Helper: generate VARA HF INI file
+generate_vara_hf_ini() {
+  local vara_dir="$1"
+  local ini_file="${vara_dir}/VARA.ini"
+  
+  echo "[*] Generating VARA HF configuration: ${ini_file}"
+  
+  cat > "${ini_file}" <<EOF
+[Monitor]
+Monitor Mode=0
+[Setup]
+Enable KISS=1
+TCP Command Port=8300
+KISS Port=8100
+Registration Code=$(if [[ -n "${VARA_REG_KEY}" ]]; then echo "${VARA_REG_KEY}"; else echo ""; fi)
+Registration Code 1=
+Registration Code 2=
+Registration Code 3=
+Callsign Licence 0=${USER_CALLSIGN}
+Callsign Licence 1=
+Callsign Licence 2=
+Callsign Licence 3=
+WaterFall=1
+Retries=5
+View=1
+CW ID=0
+RA-Board PTT=0
+Compatibility=0
+Updates=1
+ATU=0
+Encryption=0
+Password encryption=
+[Soundcard]
+Input Device Name=In: USB Audio Device - USB Audi
+Output Device Name=Out: USB Audio Device - USB Aud
+ALC Drive Level=-10
+RA-Board Device Path=
+Channel=0
+[PTT]
+Rig=52
+PTTPort=COM10
+CATPort=COM10
+Baud=19200
+Pin=1
+RTS=0
+DTR=0
+Via=3
+Icom Address=
+[Log]
+Log Caption=Log*
+Enable SysLog=0
+SysLog Host=localhost
+SysLog UDP Port=514
+CommandsLog=0
+SysLog Station Name=
+[Position]
+Top Position=3720
+Left Position=9405
+EOF
+}
+
+# Helper: generate VARA FM INI file
+generate_vara_fm_ini() {
+  local vara_dir="$1"
+  local ini_file="${vara_dir}/VARAFM.ini"
+  
+  echo "[*] Generating VARA FM configuration: ${ini_file}"
+  
+  cat > "${ini_file}" <<EOF
+[Monitor]
+Monitor Mode=0
+[Setup]
+Enable KISS=1
+TCP Command Port=8300
+KISS Port=8100
+Registration Code=$(if [[ -n "${VARA_REG_KEY}" ]]; then echo "${VARA_REG_KEY}"; else echo ""; fi)
+Registration Code 1=
+Registration Code 2=
+Registration Code 3=
+Callsign Licence 0=${USER_CALLSIGN}
+Callsign Licence 1=
+Callsign Licence 2=
+Callsign Licence 3=
+WaterFall=1
+Retries=5
+View=1
+CW ID=0
+RA-Board PTT=0
+Compatibility=0
+Updates=1
+ATU=0
+Encryption=0
+Password encryption=
+[Soundcard]
+Input Device Name=In: USB Audio Device - USB Audi
+Output Device Name=Out: USB Audio Device - USB Aud
+ALC Drive Level=-10
+RA-Board Device Path=
+Channel=0
+[PTT]
+Rig=52
+PTTPort=COM10
+CATPort=COM10
+Baud=19200
+Pin=1
+RTS=0
+DTR=0
+Via=3
+Icom Address=
+[Log]
+Log Caption=Log*
+Enable SysLog=0
+SysLog Host=localhost
+SysLog UDP Port=514
+CommandsLog=0
+SysLog Station Name=
+[Position]
+Top Position=3720
+Left Position=9405
+EOF
 }
 
 # -------------------------------------------------------------
@@ -429,6 +621,10 @@ else
   else
     echo "[*] Winlink Express installed at:"
     echo "    ${WINLINK_PATH_ON_DISK}"
+    
+    # Generate Winlink INI file
+    WINLINK_DIR="$(dirname "${WINLINK_PATH_ON_DISK}")"
+    generate_winlink_ini "${WINLINK_DIR}"
   fi
 fi
 
@@ -521,6 +717,10 @@ else
     if [[ -n "${VARA_HF_EXE}" ]]; then
       echo "[*] VARA HF installed at:"
       echo "    ${VARA_HF_EXE}"
+      
+      # Generate VARA HF INI file
+      VARA_HF_DIR="$(dirname "${VARA_HF_EXE}")"
+      generate_vara_hf_ini "${VARA_HF_DIR}"
     else
       echo "WARNING: VARA HF installer ran but VARA.exe not found."
     fi
@@ -563,6 +763,10 @@ else
     if [[ -n "${VARA_FM_EXE}" ]]; then
       echo "[*] VARA FM installed at:"
       echo "    ${VARA_FM_EXE}"
+      
+      # Generate VARA FM INI file
+      VARA_FM_DIR="$(dirname "${VARA_FM_EXE}")"
+      generate_vara_fm_ini "${VARA_FM_DIR}"
     else
       echo "WARNING: VARA FM installer ran but VaraFM.exe not found."
     fi
@@ -705,7 +909,7 @@ Categories=Network;HamRadio;Application;
 EOF
 fi
 
-# Fallback: if wine-stable isn’t present, use wine
+# Fallback: if wine-stable isn't present, use wine
 if ! command -v wine-stable >/dev/null 2>&1; then
   sed -i 's/wine-stable/wine/' \
     "${APP_DIR_TOP}/winlink-express-wle.desktop" 2>/dev/null || true
@@ -726,6 +930,16 @@ echo "Launchers should appear under:  Applications → Ham Radio"
 echo
 echo "Wine prefix: ${PREFIX}"
 echo
+echo "Configuration summary:"
+echo "  Callsign: ${USER_CALLSIGN}"
+echo "  Grid Square: ${USER_GRID}"
+echo "  Winlink Password: [configured]"
+if [[ -n "${VARA_REG_KEY}" ]]; then
+  echo "  VARA Registration: [configured]"
+else
+  echo "  VARA Registration: [trial mode]"
+fi
+echo
 echo "Manual run examples:"
 echo '  env -u WINEARCH WINEPREFIX=$HOME/.wine32 wine "C:\RMS Express\RMS Express.exe"'
 if [[ -n "${VARAC_EXE}" ]]; then
@@ -742,4 +956,7 @@ echo "    After logging out and back in, rerun to complete installs."
 echo "  - Winlink, VarAC, and VARA all share the 32-bit prefix ~/.wine32."
 echo "  - pdh.dll (via nt4pdhdll.exe) has been installed into VARA dirs"
 echo "    when possible to avoid the pdh.dll missing error."
+echo "  - Initial .ini configuration files have been created with your"
+echo "    callsign, grid, and COM port settings. You may need to adjust"
+echo "    audio device names in the program settings."
 echo
