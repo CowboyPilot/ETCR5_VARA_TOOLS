@@ -514,7 +514,7 @@ main() {
       echo
       echo "Updating INI files..."
       patch_vara_ini_port "HF" "${PORT}"
-      patch_winlink_ini "HF" "${PORT}"
+      #patch_winlink_ini "HF" "${PORT}"
       
       echo
       start_vara_hf
@@ -535,7 +535,7 @@ main() {
       echo
       echo "Updating INI files..."
       patch_vara_ini_port "FM" "${PORT}"
-      patch_winlink_ini "FM" "${PORT}"
+      #patch_winlink_ini "FM" "${PORT}"
       
       # Give the INI changes time to be written to disk
       sync
