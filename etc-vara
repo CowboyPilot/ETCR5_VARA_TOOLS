@@ -277,61 +277,6 @@ patch_vara_ini_port() {
   fi
 }
 
-# Patch Winlink RMS Express.ini for selected modem
-patch_winlink_ini() {
-  local mode="$1"  # HF or FM
-  local port="$2"
-
-  [[ -f "${WINLINK_INI}" ]] || return 0
-
-  echo -e "${BLUE}  → Updating Winlink INI for VARA ${mode} (port ${port})${NC}"
-  cp "${WINLINK_INI}" "${WINLINK_INI}.backup" 2>/dev/null || true
-
-  if [[ "${mode}" == "HF" ]]; then
-    # Patch [Vara TNC] section for HF
-    python3 - <<'PYTHON_EOF'
-import configparser
-import sys
-import os
-
-config = configparser.ConfigParser()
-config.read(os.environ['WINLINK_INI'])
-
-if 'Vara TNC' not in config:
-    config['Vara TNC'] = {}
-
-config['Vara TNC']['TCP Port'] = os.environ['port']
-config['Vara TNC']['Auto Launch Vara'] = 'False'
-config['Vara TNC']['Automatically Launch Vara Tnc'] = 'False'
-
-with open(os.environ['WINLINK_INI'], 'w') as f:
-    config.write(f, space_around_delimiters=False)
-PYTHON_EOF
-  else
-    # Patch [Vara FM TNC] section for FM
-    python3 - <<'PYTHON_EOF'
-import configparser
-import sys
-import os
-
-config = configparser.ConfigParser()
-config.read(os.environ['WINLINK_INI'])
-
-if 'Vara FM TNC' not in config:
-    config['Vara FM TNC'] = {}
-
-config['Vara FM TNC']['TCP Port'] = os.environ['port']
-config['Vara FM TNC']['Auto Launch Vara FM'] = 'False'
-config['Vara FM TNC']['Automatically Launch Vara Fm Tnc'] = 'False'
-
-with open(os.environ['WINLINK_INI'], 'w') as f:
-    config.write(f, space_around_delimiters=False)
-PYTHON_EOF
-  fi
-  
-  echo -e "${GREEN}  ✓ Winlink configured (auto-launch disabled)${NC}"
-}
-
 # Patch VarAC INI for HF or FM
 patch_varac_ini() {
   local mode="$1"  # HF or FM
