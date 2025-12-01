@@ -2,6 +2,8 @@
 
 A collection of scripts to simplify VARA modem and Winlink Express installation and management on EmComm Tools R5 (Ubuntu-based ham radio distribution).
 
+Note: Right now you have to run this script three times, the first will set the Wine Prefix to 32 bit then require you to log out and log back in to run the script again.  There are two bugs currently, one involves the Winlink INI file and it will crash the script, just start it again and it will finish up.  The second is that it downloads the VARA installers but doesn't see them so you'll need to run it a third time to get them to install.  Annoying for sure but the long run is only the first time.  Once I get some time I'll hammer out the bug that requires it to be run a third time.  The logging out process is going to be necessary regardless unless the base ET image updates to win32 as a default.
+
 ## Features
 
 - **Automated Installation**: One-line install script that downloads and sets up everything
