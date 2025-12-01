@@ -29,8 +29,10 @@ ET_CONFIG="${ET_HOME}/.config"
 ET_CONF_TEMPLATE_DIR="${ET_HOME}/conf/template.d/winlink"
 WINEPREFIX="${HOME}/.wine32"
 
-# Pat config
+# Config files
 PAT_CONFIG="${HOME}/.config/pat/config.json"
+ET_USER_CONFIG="${HOME}/.config/emcomm-tools/user.json"
+ET_RADIO_CONFIG="${HOME}/.config/emcomm-tools/active-radio.json"
 
 # Wine executables
 WINLINK_EXE="${WINEPREFIX}/drive_c/RMS Express/RMS Express.exe"
@@ -123,7 +125,6 @@ get_primary_ip() {
 
 # Get ET environment variables
 get_et_vars() {
-  local ET_USER_CONFIG="${HOME}/.config/emcomm-tools/user.json"
   local CALLSIGN=""
   local GRID=""
   local WINLINK_PASSWD=""
@@ -135,6 +136,19 @@ get_et_vars() {
   fi
   
   echo "${CALLSIGN}|${GRID}|${WINLINK_PASSWD}"
+}
+
+# Get radio configuration from active-radio.json
+get_radio_config() {
+  local BAUD_RATE="38400"  # Default
+  local RADIO_MODEL=""
+  
+  if [ -f "${ET_RADIO_CONFIG}" ]; then
+    BAUD_RATE=$(jq -r '.baudRate // "38400"' "${ET_RADIO_CONFIG}" 2>/dev/null || echo "38400")
+    RADIO_MODEL=$(jq -r '.model // ""' "${ET_RADIO_CONFIG}" 2>/dev/null || echo "")
+  fi
+  
+  echo "${BAUD_RATE}|${RADIO_MODEL}"
 }
 
 # Configure Pat for VARA HF or FM
@@ -267,8 +281,14 @@ patch_vara_ini_port() {
   # Simple sed replacement - most reliable for VARA INI files
   sed -i "s/^TCP Command Port=.*/TCP Command Port=${port}/" "${ini}"
   
-  
-
+  # Verify the change
+  local new_port=$(grep "^TCP Command Port=" "${ini}" | cut -d= -f2)
+  if [[ "${new_port}" == "${port}" ]]; then
+    echo -e "${GREEN}  ✓ Successfully set TCP Command Port=${port}${NC}"
+  else
+    echo -e "${RED}  ! WARNING: Port may not have been set correctly${NC}"
+    echo -e "${YELLOW}    Expected: ${port}, Found: ${new_port}${NC}"
+  fi
 }
 
 # Patch Winlink Express INI with new port
@@ -361,9 +381,19 @@ patch_varac_ini() {
   echo -e "${BLUE}  → Updating VarAC INI for VARA ${mode} (port ${port})${NC}"
   cp "${VARAC_INI}" "${VARAC_INI}.backup" 2>/dev/null || true
 
+  # Get radio configuration
+  local radio_config=$(get_radio_config)
+  local baud_rate=$(echo "$radio_config" | cut -d'|' -f1)
+  local radio_model=$(echo "$radio_config" | cut -d'|' -f2)
+  
+  echo -e "${BLUE}     Setting COM port: COM10, Baud rate: ${baud_rate}${NC}"
+  if [[ -n "${radio_model}" ]]; then
+    echo -e "${BLUE}     Radio model: ${radio_model}${NC}"
+  fi
+
   if [[ "${mode}" == "HF" ]]; then
     # Set VarAC to use VARA HF mode
-    python3 - <<'PYTHON_EOF'
+    VARAC_INI="${VARAC_INI}" port="${port}" baud_rate="${baud_rate}" python3 - <<'PYTHON_EOF'
 import configparser
 import sys
 import os
@@ -386,6 +416,12 @@ config['VARAHF_CONFIG']['VarahfLaunchOnModemConnect'] = 'OFF'
 config['VARAHF_CONFIG']['StartModemUponStartup'] = 'OFF'
 config['VARAHF_CONFIG']['AutoStartModem'] = 'OFF'
 
+# RIG_COM_CONFIGS section - set COM port and baud rate
+if 'RIG_COM_CONFIGS' not in config:
+    config['RIG_COM_CONFIGS'] = {}
+config['RIG_COM_CONFIGS']['ComPort'] = 'COM10'
+config['RIG_COM_CONFIGS']['BaudRate'] = os.environ['baud_rate']
+
 # Global auto-launch disable
 if 'Modem' not in config:
     config['Modem'] = {}
@@ -397,7 +433,7 @@ with open(os.environ['VARAC_INI'], 'w') as f:
 PYTHON_EOF
   else
     # Set VarAC to use VARA FM mode
-    python3 - <<'PYTHON_EOF'
+    VARAC_INI="${VARAC_INI}" port="${port}" baud_rate="${baud_rate}" python3 - <<'PYTHON_EOF'
 import configparser
 import sys
 import os
@@ -420,6 +456,12 @@ config['VARAFM_CONFIG']['VarafmLaunchOnModemConnect'] = 'OFF'
 config['VARAFM_CONFIG']['StartModemUponStartup'] = 'OFF'
 config['VARAFM_CONFIG']['AutoStartModem'] = 'OFF'
 
+# RIG_COM_CONFIGS section - set COM port and baud rate
+if 'RIG_COM_CONFIGS' not in config:
+    config['RIG_COM_CONFIGS'] = {}
+config['RIG_COM_CONFIGS']['ComPort'] = 'COM10'
+config['RIG_COM_CONFIGS']['BaudRate'] = os.environ['baud_rate']
+
 # Global auto-launch disable
 if 'Modem' not in config:
     config['Modem'] = {}
@@ -431,8 +473,10 @@ with open(os.environ['VARAC_INI'], 'w') as f:
 PYTHON_EOF
   fi
   
-  echo -e "${GREEN}  ✓ VarAC configured (auto-launch disabled)${NC}"
+  echo -e "${GREEN}  ✓ VarAC configured (COM10, ${baud_rate} baud, auto-launch disabled)${NC}"
 }
+
+
 
 ################################################################################
 # Launch Functions
