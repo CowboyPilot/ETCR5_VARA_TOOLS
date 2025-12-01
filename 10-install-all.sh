@@ -1,7 +1,7 @@
 #!/bin/bash
 # 10-install-all.sh
 #
-# Version: 1.2.0
+# Version: 1.2.1
 #
 # Installs into a dedicated 32-bit Wine prefix:
 #   - Winlink Express
@@ -24,7 +24,7 @@
 
 set -euo pipefail
 
-VERSION="1.2.0"
+VERSION="1.2.1"
 
 PREFIX="${HOME}/.wine32"
 WINLINK_ZIP_URL="https://downloads.winlink.org/User%20Programs/Winlink_Express_install_1-7-28-0.zip"
@@ -319,7 +319,8 @@ find_vara_hf_installer() {
   local dirs=("${SCRIPT_DIR}" "${HOME}/Downloads")
   for dir in "${dirs[@]}"; do
     local files
-    files=$(ls -1 "${dir}"/VARA*.exe 2>/dev/null | grep -iv "fm" || true)
+    # Look for both setup.exe and any VARA*.exe that doesn't have FM in the name
+    files=$(find "${dir}" -maxdepth 1 \( -iname "VARA*setup*.exe" -o -iname "VARA*.exe" \) ! -iname "*FM*" 2>/dev/null | sort -r || true)
     if [[ -n "${files}" ]]; then
       echo "${files}" | head -n 1
       return 0
@@ -333,7 +334,8 @@ find_vara_fm_installer() {
   local dirs=("${SCRIPT_DIR}" "${HOME}/Downloads")
   for dir in "${dirs[@]}"; do
     local files
-    files=$(ls -1 "${dir}"/VARA*FM*.exe "${dir}"/VaraFM*.exe 2>/dev/null || true)
+    # Look for any VARA*FM*.exe or VaraFM*.exe
+    files=$(find "${dir}" -maxdepth 1 \( -iname "VARA*FM*.exe" -o -iname "VaraFM*.exe" \) 2>/dev/null | sort -r || true)
     if [[ -n "${files}" ]]; then
       echo "${files}" | head -n 1
       return 0
@@ -432,8 +434,8 @@ ATU=0
 Encryption=0
 Password encryption=
 [Soundcard]
-Input Device Name=In: USB Audio Device - USB Audi
-Output Device Name=Out: USB Audio Device - USB Aud
+Input Device Name=USB Audio CODEC
+Output Device Name=USB Audio CODEC
 ALC Drive Level=-10
 RA-Board Device Path=
 Channel=0
@@ -493,8 +495,8 @@ ATU=0
 Encryption=0
 Password encryption=
 [Soundcard]
-Input Device Name=In: USB Audio Device - USB Audi
-Output Device Name=Out: USB Audio Device - USB Aud
+Input Device Name=USB Audio CODEC
+Output Device Name=USB Audio CODEC
 ALC Drive Level=-10
 RA-Board Device Path=
 Channel=0
@@ -621,10 +623,6 @@ else
   else
     echo "[*] Winlink Express installed at:"
     echo "    ${WINLINK_PATH_ON_DISK}"
-    
-    # Generate Winlink INI file
-    WINLINK_DIR="$(dirname "${WINLINK_PATH_ON_DISK}")"
-    generate_winlink_ini "${WINLINK_DIR}"
   fi
 fi
 
@@ -688,9 +686,9 @@ if [[ -n "${VARA_HF_EXE}" ]]; then
 else
   VARA_HF_INSTALLER=""
   
-  # First try to find locally
+  # First try to find locally (including just-downloaded files)
   if VARA_HF_INSTALLER=$(find_vara_hf_installer); then
-    echo "[*] Found VARA HF installer locally:"
+    echo "[*] Found VARA HF installer:"
     echo "    ${VARA_HF_INSTALLER}"
   else
     # Try to download if not found
@@ -698,10 +696,13 @@ else
     echo "[*] Attempting to download latest version from Winlink..."
     # Pattern: "VARA%20HF" matches "VARA HF v4.8.9 setup.zip"
     if VARA_HF_INSTALLER=$(download_vara_installer "VARA%20HF" "HF"); then
-      echo "[*] Successfully downloaded VARA HF installer"
+      echo "[*] Successfully downloaded VARA HF installer to:"
+      echo "    ${VARA_HF_INSTALLER}"
     else
       echo "[!] Could not download VARA HF installer automatically."
-      echo "    Please manually download the VARA HF installer and save it in:"
+      echo "    Please manually download the VARA HF installer from:"
+      echo "      https://rosmodem.wordpress.com/"
+      echo "    Save it in:"
       echo "      - ${SCRIPT_DIR}"
       echo "      - or ${HOME}/Downloads"
       echo "    Then re-run this script."
@@ -711,7 +712,7 @@ else
   
   # Install if we have an installer
   if [[ -n "${VARA_HF_INSTALLER}" ]]; then
-    echo "[*] Running VARA HF installer..."
+    echo "[*] Running VARA HF installer: ${VARA_HF_INSTALLER}"
     env -u WINEARCH WINEPREFIX="${PREFIX}" wine "${VARA_HF_INSTALLER}"
     VARA_HF_EXE=$(find "${PREFIX}/drive_c" -maxdepth 6 -iname "VARA.exe" | head -n 1 || true)
     if [[ -n "${VARA_HF_EXE}" ]]; then
@@ -724,6 +725,8 @@ else
     else
       echo "WARNING: VARA HF installer ran but VARA.exe not found."
     fi
+  else
+    echo "[!] Skipping VARA HF installation - no installer available"
   fi
 fi
 
@@ -734,9 +737,9 @@ if [[ -n "${VARA_FM_EXE}" ]]; then
 else
   VARA_FM_INSTALLER=""
   
-  # First try to find locally
+  # First try to find locally (including just-downloaded files)
   if VARA_FM_INSTALLER=$(find_vara_fm_installer); then
-    echo "[*] Found VARA FM installer locally:"
+    echo "[*] Found VARA FM installer:"
     echo "    ${VARA_FM_INSTALLER}"
   else
     # Try to download if not found
@@ -744,10 +747,13 @@ else
     echo "[*] Attempting to download latest version from Winlink..."
     # Pattern: "VARA%20FM" matches "VARA FM v4.3.9 setup.zip"
     if VARA_FM_INSTALLER=$(download_vara_installer "VARA%20FM" "FM"); then
-      echo "[*] Successfully downloaded VARA FM installer"
+      echo "[*] Successfully downloaded VARA FM installer to:"
+      echo "    ${VARA_FM_INSTALLER}"
     else
       echo "[!] Could not download VARA FM installer automatically."
-      echo "    Please manually download the VARA FM installer and save it in:"
+      echo "    Please manually download the VARA FM installer from:"
+      echo "      https://rosmodem.wordpress.com/"
+      echo "    Save it in:"
       echo "      - ${SCRIPT_DIR}"
       echo "      - or ${HOME}/Downloads"
       echo "    Then re-run this script."
@@ -757,7 +763,7 @@ else
   
   # Install if we have an installer
   if [[ -n "${VARA_FM_INSTALLER}" ]]; then
-    echo "[*] Running VARA FM installer..."
+    echo "[*] Running VARA FM installer: ${VARA_FM_INSTALLER}"
     env -u WINEARCH WINEPREFIX="${PREFIX}" wine "${VARA_FM_INSTALLER}"
     VARA_FM_EXE=$(find "${PREFIX}/drive_c" -maxdepth 6 -iname "VaraFM.exe" | head -n 1 || true)
     if [[ -n "${VARA_FM_EXE}" ]]; then
@@ -770,6 +776,8 @@ else
     else
       echo "WARNING: VARA FM installer ran but VaraFM.exe not found."
     fi
+  else
+    echo "[!] Skipping VARA FM installation - no installer available"
   fi
 fi
 
@@ -940,23 +948,21 @@ else
   echo "  VARA Registration: [trial mode]"
 fi
 echo
-echo "Manual run examples:"
-echo '  env -u WINEARCH WINEPREFIX=$HOME/.wine32 wine "C:\RMS Express\RMS Express.exe"'
-if [[ -n "${VARAC_EXE}" ]]; then
-  echo '  env -u WINEARCH WINEPREFIX=$HOME/.wine32 wine "C:\VarAC\VarAC.exe"'
-fi
-echo
-echo "VARA HF/FM EXEs (if installed):"
+echo "VARA HF/FM Executables:"
 [[ -n "${VARA_HF_EXE}" ]] && echo "  HF: ${VARA_HF_EXE}"
 [[ -n "${VARA_FM_EXE}" ]] && echo "  FM: ${VARA_FM_EXE}"
 echo
-echo "IMPORTANT:"
-echo "  - First run: this script may only patch your env and exit."
-echo "    After logging out and back in, rerun to complete installs."
-echo "  - Winlink, VarAC, and VARA all share the 32-bit prefix ~/.wine32."
-echo "  - pdh.dll (via nt4pdhdll.exe) has been installed into VARA dirs"
-echo "    when possible to avoid the pdh.dll missing error."
-echo "  - Initial .ini configuration files have been created with your"
-echo "    callsign, grid, and COM port settings. You may need to adjust"
-echo "    audio device names in the program settings."
+echo "IMPORTANT - NEXT STEPS:"
+echo "  1) DO NOT launch programs directly from the menu yet!"
+echo "  2) Run 'etc-vara' to properly configure and launch your programs"
+echo "  3) etc-vara will:"
+echo "     - Allocate free ports automatically"
+echo "     - Configure Winlink, VarAC, and VARA with correct settings"
+echo "     - Launch programs in the correct order"
+echo
+echo "NOTES:"
+echo "  - Initial .ini files created with your callsign and COM10 port"
+echo "  - etc-vara will update ports and audio settings on each run"
+echo "  - All programs share the 32-bit Wine prefix: ~/.wine32"
+echo "  - pdh.dll has been installed to avoid missing DLL errors"
 echo
