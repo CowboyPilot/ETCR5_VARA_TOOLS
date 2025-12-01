@@ -267,13 +267,87 @@ patch_vara_ini_port() {
   # Simple sed replacement - most reliable for VARA INI files
   sed -i "s/^TCP Command Port=.*/TCP Command Port=${port}/" "${ini}"
   
-  # Verify the change
-  local new_port=$(grep "^TCP Command Port=" "${ini}" | cut -d= -f2)
-  if [[ "${new_port}" == "${port}" ]]; then
-    echo -e "${GREEN}  ✓ Successfully set TCP Command Port=${port}${NC}"
+  
+
+}
+
+# Patch Winlink Express INI with new port
+patch_winlink_ini() {
+  local mode="$1"  # HF or FM
+  local port="$2"
+
+  if [[ ! -f "${WINLINK_INI}" ]]; then
+    echo -e "${YELLOW}  ! Winlink Express INI not found: ${WINLINK_INI}${NC}"
+    echo -e "${YELLOW}    Winlink Express needs to be run at least once to generate its configuration${NC}"
+    echo -e "${YELLOW}    After first run, close Winlink and run this launcher again to update the port${NC}"
+    return 0
+  fi
+
+  if [[ "${mode}" == "HF" ]]; then
+    echo -e "${BLUE}  → Updating Winlink Express INI for VARA HF${NC}"
+    echo -e "${BLUE}     Setting TCP Port=${port} in [Vara TNC] section${NC}"
+    echo -e "${BLUE}     Disabling Auto Launch Vara${NC}"
   else
-    echo -e "${RED}  ! WARNING: Port may not have been set correctly${NC}"
-    echo -e "${YELLOW}    Expected: ${port}, Found: ${new_port}${NC}"
+    echo -e "${BLUE}  → Updating Winlink Express INI for VARA FM${NC}"
+    echo -e "${BLUE}     Setting TCP Port=${port} in [Vara FM TNC] section${NC}"
+    echo -e "${BLUE}     Disabling Auto Launch Vara FM${NC}"
+  fi
+  
+  cp "${WINLINK_INI}" "${WINLINK_INI}.backup" 2>/dev/null || true
+
+  # Update the appropriate section based on mode
+  if [[ "${mode}" == "HF" ]]; then
+    # Update [Vara TNC] section for HF
+    awk -v port="${port}" '
+      /^\[Vara TNC\]/ { in_section=1 }
+      /^\[.*\]/ && !/^\[Vara TNC\]/ { in_section=0 }
+      in_section && /^TCP Port=/ { print "TCP Port=" port; next }
+      in_section && /^Auto Launch Vara=/ { print "Auto Launch Vara=False"; next }
+      { print }
+    ' "${WINLINK_INI}" > "${WINLINK_INI}.tmp" && mv "${WINLINK_INI}.tmp" "${WINLINK_INI}"
+    
+    # Verify the change
+    local new_port=$(awk '/^\[Vara TNC\]/,/^\[.*\]/ { if (/^TCP Port=/) print $0 }' "${WINLINK_INI}" | cut -d= -f2)
+    local auto_launch=$(awk '/^\[Vara TNC\]/,/^\[.*\]/ { if (/^Auto Launch Vara=/) print $0 }' "${WINLINK_INI}" | cut -d= -f2)
+    
+    if [[ "${new_port}" == "${port}" ]]; then
+      echo -e "${GREEN}  ✓ Successfully set VARA HF TCP Port=${port}${NC}"
+    else
+      echo -e "${RED}  ! WARNING: Port may not have been set correctly${NC}"
+      echo -e "${YELLOW}    Expected: ${port}, Found: ${new_port}${NC}"
+    fi
+    
+    if [[ "${auto_launch}" == "False" ]]; then
+      echo -e "${GREEN}  ✓ Auto Launch Vara disabled${NC}"
+    else
+      echo -e "${YELLOW}  ! Auto Launch Vara may not be disabled: ${auto_launch}${NC}"
+    fi
+  else
+    # Update [Vara FM TNC] section for FM
+    awk -v port="${port}" '
+      /^\[Vara FM TNC\]/ { in_section=1 }
+      /^\[.*\]/ && !/^\[Vara FM TNC\]/ { in_section=0 }
+      in_section && /^TCP Port=/ { print "TCP Port=" port; next }
+      in_section && /^Auto Launch Vara FM=/ { print "Auto Launch Vara FM=False"; next }
+      { print }
+    ' "${WINLINK_INI}" > "${WINLINK_INI}.tmp" && mv "${WINLINK_INI}.tmp" "${WINLINK_INI}"
+    
+    # Verify the change
+    local new_port=$(awk '/^\[Vara FM TNC\]/,/^\[.*\]/ { if (/^TCP Port=/) print $0 }' "${WINLINK_INI}" | cut -d= -f2)
+    local auto_launch=$(awk '/^\[Vara FM TNC\]/,/^\[.*\]/ { if (/^Auto Launch Vara FM=/) print $0 }' "${WINLINK_INI}" | cut -d= -f2)
+    
+    if [[ "${new_port}" == "${port}" ]]; then
+      echo -e "${GREEN}  ✓ Successfully set VARA FM TCP Port=${port}${NC}"
+    else
+      echo -e "${RED}  ! WARNING: Port may not have been set correctly${NC}"
+      echo -e "${YELLOW}    Expected: ${port}, Found: ${new_port}${NC}"
+    fi
+    
+    if [[ "${auto_launch}" == "False" ]]; then
+      echo -e "${GREEN}  ✓ Auto Launch Vara FM disabled${NC}"
+    else
+      echo -e "${YELLOW}  ! Auto Launch Vara FM may not be disabled: ${auto_launch}${NC}"
+    fi
   fi
 }
 
@@ -514,7 +588,7 @@ main() {
       echo
       echo "Updating INI files..."
       patch_vara_ini_port "HF" "${PORT}"
-      #patch_winlink_ini "HF" "${PORT}"
+      patch_winlink_ini "HF" "${PORT}"
       
       echo
       start_vara_hf
@@ -535,7 +609,7 @@ main() {
       echo
       echo "Updating INI files..."
       patch_vara_ini_port "FM" "${PORT}"
-      #patch_winlink_ini "FM" "${PORT}"
+      patch_winlink_ini "FM" "${PORT}"
       
       # Give the INI changes time to be written to disk
       sync
