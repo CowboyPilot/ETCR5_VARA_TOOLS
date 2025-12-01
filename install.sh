@@ -215,6 +215,25 @@ install_fix-sources() {
   print_success "fix-sources.sh installed successfully"
 }
 
+install_fix-varac13() {
+  print_header "Installing fix-varac-13.sh"
+  
+  print_info "Downloading fix-varac-13.sh from GitHub..."
+  if curl -fsSL "${REPO_URL}/fix-varac-13.sh" -o "${HOME_DIR}/fix-varac-13.sh"; then
+    print_success "Downloaded fix-varac-13.sh"
+  else
+    print_error "Failed to download fix-varac-13.sh"
+    return 1
+  fi
+  
+  print_info "Setting executable permissions..."
+  chmod +x "${HOME_DIR}/fix-varac-13.sh"
+  print_success "Set executable: ${HOME_DIR}/fix-varac-13.sh"
+  
+  echo
+  print_success "fix-varac-13.sh installed successfully"
+}
+
 install_update_g90() {
   print_header "Installing update-g90-config.sh"
   
